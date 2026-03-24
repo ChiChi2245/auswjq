@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>AI 면접 도우미</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+:root{--bg:#0a0d14;--sur:#111520;--s2:#161b2a;--bdr:rgba(99,140,255,0.15);--acc:#4f79ff;--acc2:#7c5cfc;--txt:#e8eaf6;--mut:#8b92a5;--ok:#34d399;--er:#f87171;--gold:#f0c060;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--txt);font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;}
+
+.header{background:var(--sur);border-bottom:1px solid var(--bdr);padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.header-title{font-size:16px;font-weight:700;color:var(--txt);}
+.header-sub{font-size:11px;color:var(--mut);margin-top:2px;}
+.setup-btn{background:var(--s2);border:1px solid var(--bdr);border-radius:10px;color:var(--mut);font-size:12px;padding:7px 12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+
+.main{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:14px;-webkit-overflow-scrolling:touch;}
+
+.card{background:var(--sur);border:1px solid var(--bdr);border-radius:20px;padding:18px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(79,121,255,.5),transparent);}
+
+.api-card{background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.25);}
+.api-card.ok{background:rgba(52,211,153,.06);border-color:rgba(52,211,153,.25);}
+.api-title{font-size:13px;font-weight:600;margin-bottom:8px;color:var(--er);}
+.api-card.ok .api-title{color:var(--ok);}
+.api-desc{font-size:12px;color:var(--mut);line-height:1.6;margin-bottom:10px;}
+.api-row{display:flex;gap:8px;}
+.api-input{flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:12px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:14px;padding:12px 14px;outline:none;-webkit-appearance:none;}
+.api-input::placeholder{color:var(--mut);}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;border-radius:14px;font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;-webkit-appearance:none;white-space:nowrap;padding:13px 18px;}
+.btn:active{transform:scale(.97);}
+.bp{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;box-shadow:0 4px 16px rgba(79,121,255,.35);}
+.bg{background:var(--s2);border:1px solid var(--bdr);color:var(--txt);}
+.btn:disabled{opacity:.35;}
+
+.mic-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 0;}
+.mic-outer{position:relative;display:flex;align-items:center;justify-content:center;}
+.mic-btn{width:130px;height:130px;border-radius:50%;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:all .2s;position:relative;z-index:1;-webkit-appearance:none;background:linear-gradient(135deg,#1e2840,#2a3550);box-shadow:0 6px 24px rgba(0,0,0,.4);}
+.mic-btn .mic-icon{font-size:46px;line-height:1;}
+.mic-btn .mic-text{font-size:11px;color:var(--mut);font-weight:500;}
+.mic-btn.rec{background:linear-gradient(135deg,#f87171,#e11d48);box-shadow:0 8px 36px rgba(248,113,113,.5);animation:recpulse 1.2s ease-in-out infinite;}
+.mic-btn.rec .mic-text{color:rgba(255,255,255,.8);}
+@keyframes recpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.mic-btn.thinking{background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 8px 32px rgba(79,121,255,.45);animation:thinking 1s ease-in-out infinite;}
+@keyframes thinking{0%,100%{opacity:1}50%{opacity:.6}}
+.mic-btn.done{background:linear-gradient(135deg,#34d399,#059669);box-shadow:0 8px 28px rgba(52,211,153,.4);}
+.mic-btn.done .mic-text{color:rgba(255,255,255,.8);}
+
+.ring1,.ring2{position:absolute;border-radius:50%;border:2px solid var(--er);opacity:0;pointer-events:none;}
+.ring1{inset:-14px;}.ring2{inset:-28px;}
+.mic-btn.rec ~ .ring1{opacity:1;animation:rp 1.4s ease-out infinite;}
+.mic-btn.rec ~ .ring2{opacity:1;animation:rp 1.4s ease-out .35s infinite;}
+@keyframes rp{0%{transform:scale(.9);opacity:.55}100%{transform:scale(1.1);opacity:0}}
+
+.state-label{font-size:15px;font-weight:600;text-align:center;padding:10px 24px;border-radius:24px;transition:all .3s;}
+.state-label.idle{color:var(--mut);background:var(--s2);border:1px solid var(--bdr);}
+.state-label.rec{color:var(--er);background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);}
+.state-label.thinking{color:var(--acc);background:rgba(79,121,255,.1);border:1px solid rgba(79,121,255,.3);}
+.state-label.done{color:var(--ok);background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);}
+
+/* 언어 감지 상태 표시 */
+.lang-bar{display:none;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;}
+.lang-bar.show{display:flex;}
+.lang-chip{font-size:12px;padding:4px 12px;border-radius:20px;border:1px solid var(--bdr);color:var(--mut);background:var(--s2);transition:all .3s;}
+.lang-chip.active{color:#fff;border-color:transparent;}
+.lang-chip.active.zh{background:#e11d48;}
+.lang-chip.active.en{background:#1d4ed8;}
+.lang-chip.active.ko{background:#059669;}
+
+.wavebars{display:flex;align-items:center;justify-content:center;gap:4px;height:28px;opacity:0;transition:opacity .3s;}
+.wavebars.on{opacity:1;}
+.wavebars span{display:block;width:4px;background:var(--er);border-radius:3px;animation:wv .9s ease-in-out infinite;}
+.wavebars span:nth-child(1){animation-delay:.0s}.wavebars span:nth-child(2){animation-delay:.1s}
+.wavebars span:nth-child(3){animation-delay:.2s}.wavebars span:nth-child(4){animation-delay:.3s}
+.wavebars span:nth-child(5){animation-delay:.2s}.wavebars span:nth-child(6){animation-delay:.1s}
+.wavebars span:nth-child(7){animation-delay:.0s}
+@keyframes wv{0%,100%{height:5px}50%{height:24px}}
+
+.q-box{display:none;background:var(--s2);border:1px solid rgba(240,192,96,.25);border-radius:14px;padding:14px 16px;}
+.q-box.show{display:block;}
+.q-lang{font-size:11px;color:var(--gold);margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+.q-text{font-size:15px;line-height:1.7;color:var(--txt);}
+
+.ans-box{display:none;background:rgba(79,121,255,.07);border:1px solid rgba(79,121,255,.2);border-radius:14px;padding:16px;}
+.ans-box.show{display:block;}
+.ans-label{font-size:11px;color:var(--acc);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.ans-label::after{content:'';flex:1;height:1px;background:rgba(79,121,255,.2);}
+.ans-text{font-size:17px;line-height:2.0;color:var(--txt);white-space:pre-wrap;word-break:break-word;}
+.cursor{display:inline-block;width:2px;height:1.1em;background:var(--acc);margin-left:2px;animation:bl .7s step-end infinite;vertical-align:text-bottom;border-radius:1px;}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:0}}
+
+.ans-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.ans-actions .btn{flex:1;min-width:0;font-size:13px;padding:11px 10px;}
+
+.spk-bar{display:none;align-items:center;gap:8px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--ok);margin-top:10px;}
+.spk-bar.on{display:flex;}
+.spk-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:bl 1s ease infinite;}
+
+.ctx-info{font-size:12px;color:var(--mut);text-align:center;}
+.ctx-info b{color:var(--acc);font-weight:600;}
+
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;padding:20px;align-items:flex-end;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
+.modal-bg.show{display:flex;}
+.modal{background:var(--sur);border:1px solid var(--bdr);border-radius:24px;padding:24px;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--txt);}
+.modal label{font-size:13px;color:var(--mut);display:block;margin-bottom:6px;margin-top:14px;}
+.modal textarea{background:var(--s2);border:1px solid var(--bdr);border-radius:12px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:13px;line-height:1.7;padding:13px;resize:none;width:100%;outline:none;-webkit-appearance:none;min-height:180px;}
+.modal textarea::placeholder{color:var(--mut);}
+.modal-actions{display:flex;gap:8px;margin-top:16px;}
+.modal-actions .btn{flex:1;}
+
+.saved-notice{display:none;align-items:center;gap:6px;font-size:12px;color:var(--ok);background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.15);border-radius:10px;padding:8px 12px;margin-top:10px;}
+.saved-notice.show{display:flex;}
+.okd{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block;}
+
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--sur);border:1px solid var(--bdr);border-radius:20px;padding:10px 20px;font-size:13px;color:var(--txt);z-index:999;opacity:0;transition:all .3s ease;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.5);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.ok{border-color:rgba(52,211,153,.4);color:var(--ok);}
+.toast.err{border-color:rgba(248,113,113,.4);color:var(--er);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">🎤 AI 면접 도우미</div>
+    <div class="header-sub">중국어·영어·한국어 → 즉시 한국어 답변</div>
+  </div>
+  <button class="setup-btn" onclick="openModal()">⚙️ 설정</button>
+</div>
+
+<div class="main" id="main">
+
+  <!-- API 키 카드 -->
+  <div class="card api-card" id="apiCard">
+    <div class="api-title">🔑 API 키 입력 필요</div>
+    <div class="api-desc">
+      <a href="https://console.anthropic.com" style="color:var(--acc)">console.anthropic.com</a>
+      → API Keys → Create Key
+    </div>
+    <div class="api-row">
+      <input class="api-input" id="apiInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off">
+      <button class="btn bp" onclick="saveApiKey()" style="padding:12px 16px">저장</button>
+    </div>
+  </div>
+
+  <!-- 마이크 카드 -->
+  <div class="card">
+    <div class="mic-wrap">
+      <div class="mic-outer">
+        <button class="mic-btn idle" id="micBtn" onclick="toggleMic()">
+          <span class="mic-icon" id="micIcon">🎤</span>
+          <span class="mic-text" id="micText">탭하여 시작</span>
+        </button>
+        <div class="ring1"></div>
+        <div class="ring2"></div>
+      </div>
+
+      <div class="wavebars" id="wavebars">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="state-label idle" id="stateLabel">폰을 노트북 스피커 옆에 놓으세요</div>
+
+      <!-- 언어 감지 칩 -->
+      <div class="lang-bar" id="langBar">
+        <span class="lang-chip" id="chipZh">🇨🇳 중국어</span>
+        <span class="lang-chip" id="chipEn">🇺🇸 영어</span>
+        <span class="lang-chip" id="chipKo">🇰🇷 한국어</span>
+      </div>
+
+      <div class="ctx-info" id="ctxInfo"></div>
+    </div>
+  </div>
+
+  <!-- 인식된 질문 -->
+  <div class="card q-box" id="qBox">
+    <div class="q-lang" id="qLang"></div>
+    <div class="q-text" id="qText"></div>
+  </div>
+
+  <!-- AI 답변 -->
+  <div class="card ans-box" id="ansBox">
+    <div class="ans-label">🤖 한국어 답변</div>
+    <div class="ans-text" id="ansText"></div>
+    <div class="spk-bar" id="spkBar">
+      <div class="spk-dot"></div>
+      <span>읽는 중...</span>
+      <button class="btn bg" onclick="stopSpk()" style="margin-left:auto;padding:7px 12px;font-size:12px">중지</button>
+    </div>
+    <div class="ans-actions">
+      <button class="btn bp" id="spkBtn" onclick="spkLast()" disabled>🔊 읽기</button>
+      <button class="btn bg" id="cpyBtn" onclick="cpyLast()" disabled>📋 복사</button>
+      <button class="btn bg" onclick="clearSession()" style="color:var(--mut)">🔄 초기화</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- 설정 모달 -->
+<div class="modal-bg" id="modalBg" onclick="closeModalBg(event)">
+  <div class="modal">
+    <div class="modal-title">⚙️ 설정</div>
+    <label>🔑 API 키</label>
+    <div class="api-row">
+      <input class="api-input" id="modalApiInput" type="password" placeholder="sk-ant-api03-...">
+      <button class="btn bp" onclick="saveApiKeyModal()" style="padding:12px 14px">저장</button>
+    </div>
+    <label>📄 이력서</label>
+    <textarea id="resumeInput" placeholder="이력서 내용을 붙여넣기 하세요.&#10;&#10;예시:&#10;이름: 홍길동&#10;경력: 쿠팡로지스틱스 9년 2개월 Operations Manager&#10;성과: 창고 레이아웃 최적화 동선 30% 단축, 재고 정확도 99.9%&#10;기술: WMS, Python, SQL, Tableau&#10;..."></textarea>
+    <div class="saved-notice" id="savedNotice">
+      <span class="okd"></span> 이력서 저장 완료!
+    </div>
+    <div class="modal-actions">
+      <button class="btn bp" onclick="saveResume()">✓ 이력서 저장</button>
+      <button class="btn bg" onclick="closeModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 상태 ──────────────────────────────────────────────
+let apiKey   = localStorage.getItem('iv_apikey') || '';
+let resume   = localStorage.getItem('iv_resume') || '';
+let convo    = [];
+let lastAns  = '';
+let streaming = false;
+let recActive = false;
+let stopRequested = false;
+let currentRecog  = null;
+
+// ── 초기화 ────────────────────────────────────────────
+window.onload = () => {
+  if (apiKey) showApiOk();
+  if (resume) {
+    document.getElementById('resumeInput').value = resume;
+    document.getElementById('savedNotice').classList.add('show');
+  }
+  if (!apiKey || !resume) setTimeout(openModal, 400);
+};
+
+// ── API Key ───────────────────────────────────────────
+function saveApiKey() {
+  const k = document.getElementById('apiInput').value.trim();
+  if (!k.startsWith('sk-')) { toast('올바른 API 키를 입력해주세요.','err'); return; }
+  apiKey = k; localStorage.setItem('iv_apikey', k);
+  showApiOk(); toast('API 키 저장 완료! ✓','ok');
+}
+function saveApiKeyModal() {
+  const k = document.getElementById('modalApiInput').value.trim();
+  if (!k.startsWith('sk-')) { toast('올바른 API 키를 입력해주세요.','err'); return; }
+  apiKey = k; localStorage.setItem('iv_apikey', k);
+  showApiOk(); toast('API 키 저장 완료! ✓','ok');
+}
+function showApiOk() {
+  const c = document.getElementById('apiCard');
+  c.classList.add('ok');
+  c.innerHTML = `<div class="api-title">✓ API 키 연결됨</div>
+    <div class="api-desc" style="margin:0">이력서를 설정하고 면접을 시작하세요!
+    <span onclick="resetKey()" style="color:var(--er);margin-left:10px;text-decoration:underline">키 변경</span></div>`;
+}
+function resetKey() { localStorage.removeItem('iv_apikey'); location.reload(); }
+
+// ── 이력서 ────────────────────────────────────────────
+function saveResume() {
+  const t = document.getElementById('resumeInput').value.trim();
+  if (!t) { toast('이력서 내용을 입력해주세요.','err'); return; }
+  resume = t; localStorage.setItem('iv_resume', t);
+  document.getElementById('savedNotice').classList.add('show');
+  toast('이력서 저장 완료! ✓','ok');
+  setTimeout(closeModal, 700);
+}
+
+// ── 모달 ─────────────────────────────────────────────
+function openModal() {
+  document.getElementById('modalBg').classList.add('show');
+  if (apiKey) document.getElementById('modalApiInput').value = apiKey;
+}
+function closeModal() { document.getElementById('modalBg').classList.remove('show'); }
+function closeModalBg(e) { if (e.target===document.getElementById('modalBg')) closeModal(); }
+
+// ── 언어 감지 ─────────────────────────────────────────
+function detectLang(t) {
+  const cn = (t.match(/[\u4e00-\u9fff]/g)||[]).length;
+  const en = (t.match(/[a-zA-Z]/g)||[]).length;
+  const kr = (t.match(/[\uac00-\ud7af]/g)||[]).length;
+  if (cn>en && cn>kr) return {code:'zh', flag:'🇨🇳', label:'중국어 감지됨', hint:'질문은 중국어입니다. 반드시 한국어로만 답변하세요.'};
+  if (en>kr && en>cn) return {code:'en', flag:'🇺🇸', label:'영어 감지됨',   hint:'질문은 영어입니다. 반드시 한국어로만 답변하세요.'};
+  return {code:'ko', flag:'🇰🇷', label:'한국어 감지됨', hint:'한국어로 답변하세요.'};
+}
+
+function highlightLangChip(code) {
+  ['zh','en','ko'].forEach(c => {
+    const el = document.getElementById('chip'+c.charAt(0).toUpperCase()+c.slice(1));
+    el.className = 'lang-chip' + (c===code ? ' active '+c : '');
+  });
+}
+
+// ── 마이크 UI ─────────────────────────────────────────
+function setMicState(state) {
+  const btn   = document.getElementById('micBtn');
+  const icon  = document.getElementById('micIcon');
+  const text  = document.getElementById('micText');
+  const label = document.getElementById('stateLabel');
+  const waves = document.getElementById('wavebars');
+  const lbar  = document.getElementById('langBar');
+
+  btn.className   = 'mic-btn ' + state;
+  label.className = 'state-label ' + state;
+  waves.classList.toggle('on', state==='rec');
+  lbar.classList.toggle('show', state==='rec' || state==='thinking' || state==='done');
+
+  const map = {
+    idle:     {icon:'🎤', text:'탭하여 시작',  label:'폰을 노트북 스피커 옆에 놓으세요'},
+    rec:      {icon:'⏹',  text:'탭하여 중지', label:'🔴 면접관 질문 듣는 중... 끝나면 탭!'},
+    thinking: {icon:'⏳', text:'분석 중...',   label:'⚡ 질문 인식 & 답변 생성 중...'},
+    done:     {icon:'✓',  text:'다음 질문',    label:'✓ 답변 완료! 탭하면 다음 질문'},
+  };
+  const m = map[state]||map.idle;
+  icon.textContent  = m.icon;
+  text.textContent  = m.text;
+  label.textContent = m.label;
+}
+
+// ── 마이크 토글 (3개 언어 순차 시도) ─────────────────
+function toggleMic() {
+  if (streaming) return;
+
+  // 완료 상태 → idle 로 리셋
+  if (document.getElementById('micBtn').className.includes('done') && !recActive) {
+    setMicState('idle'); return;
+  }
+
+  // 녹음 중 → 사용자가 중지
+  if (recActive) {
+    stopRequested = true;
+    try { currentRecog && currentRecog.stop(); } catch(e){}
+    return;
+  }
+
+  if (!apiKey)  { toast('API 키를 먼저 설정해주세요.','err'); openModal(); return; }
+  if (!resume)  { toast('이력서를 먼저 설정해주세요.','err'); openModal(); return; }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast('Safari 브라우저를 사용해주세요.','err'); return; }
+
+  // 3개 언어 순서 — zh-CN 이 중국어+영어 모두 인식 잘 됨, en-US, ko-KR 순으로 재시도
+  const LANGS = ['zh-CN', 'en-US', 'ko-KR'];
+  let langIdx     = 0;
+  let bestText    = '';   // 가장 긴 인식 결과 보관
+  stopRequested   = false;
+  recActive       = true;
+
+  setMicState('rec');
+  document.getElementById('qBox').classList.remove('show');
+  document.getElementById('qText').textContent = '';
+  document.getElementById('ansBox').classList.remove('show');
+  // 언어 칩 초기화
+  ['zh','en','ko'].forEach(c => {
+    document.getElementById('chip'+c.charAt(0).toUpperCase()+c.slice(1)).className='lang-chip';
+  });
+
+  function tryLang(idx) {
+    if (stopRequested || idx >= LANGS.length) {
+      // 모든 시도 완료 or 사용자 중지
+      recActive = false;
+      const finalText = bestText || document.getElementById('qText').textContent.trim();
+      if (finalText && finalText.length > 1) {
+        setMicState('thinking');
+        generate(finalText);
+      } else {
+        setMicState('idle');
+        if (stopRequested) toast('녹음이 중지되었습니다.','err');
+        else toast('음성이 인식되지 않았습니다. 다시 시도해주세요.','err');
+      }
+      return;
+    }
+
+    const r = new SR();
+    currentRecog = r;
+    r.lang = LANGS[idx];
+    r.continuous = true;
+    r.interimResults = true;
+    r.maxAlternatives = 1;
+
+    let finalText = '';
+    let hasResult = false;
+
+    r.onresult = e => {
+      let interim = '';
+      finalText = '';
+      for (let i=0; i<e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      const display = (finalText || interim).trim();
+      if (display) {
+        hasResult = true;
+        // 더 긴 결과 보관
+        if (display.length > bestText.length) bestText = display;
+        const lang = detectLang(display);
+        highlightLangChip(lang.code);
+        document.getElementById('qBox').classList.add('show');
+        document.getElementById('qLang').innerHTML = `${lang.flag} ${lang.label}`;
+        document.getElementById('qText').textContent = display;
+      }
+    };
+
+    r.onend = () => {
+      // 사용자가 중지 요청했으면 바로 처리
+      if (stopRequested) {
+        tryLang(LANGS.length); // 종료 처리
+        return;
+      }
+      // 이미 충분한 텍스트 있으면 다음 언어 시도 안 함
+      if (bestText.length > 3) {
+        tryLang(LANGS.length); // 종료 처리
+        return;
+      }
+      // 다음 언어 재시도
+      setTimeout(() => tryLang(idx + 1), 150);
+    };
+
+    r.onerror = e => {
+      if (e.error === 'not-allowed') {
+        stopRequested = true;
+        recActive = false;
+        setMicState('idle');
+        toast('마이크 권한을 허용해주세요.','err');
+      }
+      // 그 외 오류는 onend 에서 자연스럽게 다음 언어로 넘어감
+    };
+
+    try { r.start(); } catch(e) { setTimeout(() => tryLang(idx + 1), 200); }
+  }
+
+  tryLang(0);
+}
+
+// ── 스트리밍 답변 생성 ────────────────────────────────
+async function generate(question) {
+  if (!question || streaming) return;
+  streaming = true;
+
+  const lang = detectLang(question);
+
+  const system = `당신은 구직자의 전문 AI 면접 코치입니다. 이력서를 기반으로 면접 질문에 한국어로 답변합니다.
+
+[지원자 이력서]
+${resume}
+
+[답변 규칙]
+1. 반드시 한국어로만 답변합니다. ${lang.hint}
+2. 이력서의 실제 경험·기술·성과 수치를 구체적으로 활용하세요.
+3. 이력서에 없는 내용은 직군·경력 수준에 맞게 자연스럽게 추론하여 프로페셔널하게 답변하세요.
+4. 꼬리질문이면 이전 맥락을 반드시 연결하여 일관성 있게 답변하세요.
+5. STAR 기법(상황→과제→행동→결과)을 자연스럽게 녹이세요.
+6. 1인칭, 자신감 있는 어조. 바로 본론부터 시작하세요.
+7. 답변 분량: 200~380자.`;
+
+  convo.push({role:'user', content:'면접 질문: '+question});
+
+  const ansBox  = document.getElementById('ansBox');
+  const ansText = document.getElementById('ansText');
+  ansBox.classList.add('show');
+  ansText.innerHTML = '<span class="cursor"></span>';
+  document.getElementById('spkBtn').disabled = true;
+  document.getElementById('cpyBtn').disabled = true;
+  setTimeout(() => ansBox.scrollIntoView({behavior:'smooth', block:'nearest'}), 100);
+
+  let acc = '';
+  try {
+    // Safari iOS 호환 — non-streaming XHR 방식
+    const result = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', 'https://api.anthropic.com/v1/messages', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('x-api-key', apiKey);
+      xhr.setRequestHeader('anthropic-version', '2023-06-01');
+      xhr.setRequestHeader('anthropic-dangerous-direct-browser-access', 'true');
+
+      // 스트리밍 시뮬레이션 — 응답 오면 타이핑 효과
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            const text = data.content?.map(b => b.text||'').join('') || '';
+            resolve(text);
+          } catch(e) { reject(new Error('응답 파싱 오류')); }
+        } else {
+          try {
+            const e = JSON.parse(xhr.responseText);
+            reject(new Error(e.error?.message || 'API 오류 '+xhr.status));
+          } catch(_) { reject(new Error('API 오류 '+xhr.status)); }
+        }
+      };
+      xhr.onerror = () => reject(new Error('네트워크 오류 — API 연결 실패'));
+      xhr.ontimeout = () => reject(new Error('타임아웃'));
+      xhr.timeout = 30000;
+
+      xhr.send(JSON.stringify({
+        model:'claude-opus-4-6',
+        max_tokens:1024,
+        stream:false,
+        system,
+        messages:convo
+      }));
+    });
+
+    // 타이핑 효과로 출력
+    acc = result;
+    const chars = [...result];
+    let displayed = '';
+    for (let i=0; i<chars.length; i++) {
+      displayed += chars[i];
+      ansText.innerHTML = esc(displayed) + '<span class="cursor"></span>';
+      if (i % 5 === 0) ansBox.scrollIntoView({behavior:'smooth', block:'nearest'});
+      await new Promise(r => setTimeout(r, 18));
+    }
+
+    ansText.textContent = acc;
+    lastAns = acc;
+    convo.push({role:'assistant', content:acc});
+
+    const turns = Math.floor(convo.length/2);
+    document.getElementById('ctxInfo').innerHTML =
+      turns>1 ? `대화 <b>${turns}턴</b> — 꼬리질문 맥락 유지 중` : '';
+
+    streaming = false;
+    document.getElementById('spkBtn').disabled = false;
+    document.getElementById('cpyBtn').disabled = false;
+    setMicState('done');
+
+  } catch(err) {
+    ansText.textContent = '오류: '+err.message;
+    streaming = false;
+    setMicState('idle');
+    toast(err.message,'err');
+  }
+}
+
+function esc(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// ── TTS ──────────────────────────────────────────────
+function spkLast() {
+  if (!lastAns) return; stopSpk();
+  const u = new SpeechSynthesisUtterance(lastAns);
+  u.lang='ko-KR'; u.rate=0.92; u.pitch=1;
+  u.onstart=()=>{ document.getElementById('spkBar').classList.add('on'); document.getElementById('spkBtn').disabled=true; };
+  u.onend=()=>{ document.getElementById('spkBar').classList.remove('on'); document.getElementById('spkBtn').disabled=false; };
+  window.speechSynthesis.speak(u);
+}
+function stopSpk() {
+  window.speechSynthesis.cancel();
+  document.getElementById('spkBar').classList.remove('on');
+  document.getElementById('spkBtn').disabled=false;
+}
+function cpyLast() {
+  if (!lastAns) return;
+  navigator.clipboard.writeText(lastAns).then(()=>toast('복사 완료!','ok')).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=lastAns; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); toast('복사 완료!','ok');
+  });
+}
+function clearSession() {
+  convo=[]; lastAns='';
+  document.getElementById('ansBox').classList.remove('show');
+  document.getElementById('qBox').classList.remove('show');
+  document.getElementById('ctxInfo').innerHTML='';
+  document.getElementById('langBar').classList.remove('show');
+  setMicState('idle'); stopSpk();
+  toast('초기화 완료!','ok');
+}
+
+let tTmr;
+function toast(msg, type='info') {
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='toast '+type+' show';
+  clearTimeout(tTmr); tTmr=setTimeout(()=>el.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
