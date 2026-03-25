@@ -90,7 +90,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Noto Sans KR',sans-serif
 .ans-box.show{display:block;}
 .ans-label{font-size:11px;color:var(--acc);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 .ans-label::after{content:'';flex:1;height:1px;background:rgba(79,121,255,.2);}
-.ans-text{font-size:17px;line-height:2.0;color:var(--txt);white-space:pre-wrap;word-break:break-word;}
+.ans-text{font-size:17px;line-height:2.0;color:var(--txt);white-space:pre-wrap;word-break:break-word;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .cursor{display:inline-block;width:2px;height:1.1em;background:var(--acc);margin-left:2px;animation:bl .7s step-end infinite;vertical-align:text-bottom;border-radius:1px;}
 @keyframes bl{0%,100%{opacity:1}50%{opacity:0}}
 
