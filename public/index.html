@@ -42,7 +42,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Noto Sans KR',sans-serif
 @keyframes recpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 .mic-btn.thinking{background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 8px 32px rgba(79,121,255,.45);animation:thinking 1s ease-in-out infinite;}
 @keyframes thinking{0%,100%{opacity:1}50%{opacity:.6}}
-.mic-btn.done{background:linear-gradient(135deg,#34d399,#059669);box-shadow:0 8px 28px rgba(52,211,153,.4);}
+.mic-btn.done{background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 8px 28px rgba(79,121,255,.4);}
 .mic-btn.done .mic-text{color:rgba(255,255,255,.8);}
 .ring1,.ring2{position:absolute;border-radius:50%;border:2px solid var(--er);opacity:0;pointer-events:none;}
 .ring1{inset:-14px;}.ring2{inset:-28px;}
@@ -53,7 +53,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Noto Sans KR',sans-serif
 .state-label.idle{color:var(--mut);background:var(--s2);border:1px solid var(--bdr);}
 .state-label.rec{color:var(--er);background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);}
 .state-label.thinking{color:var(--acc);background:rgba(79,121,255,.1);border:1px solid rgba(79,121,255,.3);}
-.state-label.done{color:var(--ok);background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);}
+.state-label.done{color:var(--acc);background:rgba(79,121,255,.1);border:1px solid rgba(79,121,255,.3);}
 .lang-bar{display:none;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;}
 .lang-bar.show{display:flex;}
 .lang-chip{font-size:12px;padding:4px 12px;border-radius:20px;border:1px solid var(--bdr);color:var(--mut);background:var(--s2);transition:all .3s;}
@@ -77,12 +77,13 @@ body{background:var(--bg);color:var(--txt);font-family:'Noto Sans KR',sans-serif
 .ans-box.show{display:block;}
 .ans-label{font-size:11px;color:var(--acc);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 .ans-label::after{content:'';flex:1;height:1px;background:rgba(79,121,255,.2);}
-.ans-text{font-size:17px;line-height:2.0;color:var(--txt);white-space:pre-wrap;word-break:break-word;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.ans-text{font-size:17px;line-height:2.0;color:var(--txt);white-space:pre-wrap;word-break:break-word;}
 .ans-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
 .ans-actions .btn{flex:1;min-width:0;font-size:13px;padding:11px 10px;}
 .spk-bar{display:none;align-items:center;gap:8px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--ok);margin-top:10px;}
 .spk-bar.on{display:flex;}
 .spk-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:bl 1s ease infinite;}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:0}}
 .ctx-info{font-size:12px;color:var(--mut);text-align:center;}
 .ctx-info b{color:var(--acc);font-weight:600;}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;padding:20px;align-items:flex-end;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
@@ -278,10 +279,10 @@ function setMicState(state) {
   waves.classList.toggle('on', state==='rec');
   lbar.classList.toggle('show', state==='rec'||state==='thinking'||state==='done');
   const map = {
-    idle:     {icon:'🎤', text:'탭하여 시작',  label:'폰을 노트북 스피커 옆에 놓으세요'},
-    rec:      {icon:'⏹',  text:'탭하여 중지', label:'🔴 면접관 질문 듣는 중... 끝나면 탭!'},
-    thinking: {icon:'⏳', text:'분석 중...',   label:'⚡ 답변 생성 중...'},
-    done:     {icon:'✓',  text:'다음 질문',    label:'✓ 답변 완료! 탭하면 다음 질문'},
+    idle:     {icon:'🎤', text:'탭하여 시작',   label:'폰을 노트북 스피커 옆에 놓으세요'},
+    rec:      {icon:'⏹',  text:'탭하여 중지',  label:'🔴 면접관 질문 듣는 중... 끝나면 탭!'},
+    thinking: {icon:'⏳', text:'생성 중...',    label:'⚡ 답변 생성 중...'},
+    done:     {icon:'🎤', text:'탭하여 시작',   label:'✓ 완료! 바로 탭하면 다음 질문 시작'},
   };
   const m = map[state]||map.idle;
   icon.textContent = m.icon;
@@ -289,11 +290,21 @@ function setMicState(state) {
   label.textContent = m.label;
 }
 
+// 음소거용 오디오 컨텍스트
+function muteBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    gain.connect(ctx.destination);
+    ctx.close();
+  } catch(e){}
+}
+
 function toggleMic() {
   if (streaming) return;
-  if (document.getElementById('micBtn').className.includes('done') && !recActive) {
-    setMicState('idle'); return;
-  }
+
+  // done 상태에서 탭 → 바로 새 녹음 시작 (idle 거치지 않음)
   if (recActive) {
     stopRequested = true;
     try { currentRecog && currentRecog.stop(); } catch(e){}
@@ -304,6 +315,9 @@ function toggleMic() {
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast('Safari 브라우저를 사용해주세요.','err'); return; }
+
+  // 음소거 처리
+  muteBeep();
 
   const LANGS = ['zh-CN', 'en-US', 'ko-KR'];
   let bestText = '';
@@ -396,11 +410,16 @@ ${resume}
 
   const ansBox  = document.getElementById('ansBox');
   const ansText = document.getElementById('ansText');
+  const main    = document.getElementById('main');
   ansBox.classList.add('show');
   ansText.textContent = '⏳ 답변 생성 중...';
   document.getElementById('spkBtn').disabled = true;
   document.getElementById('cpyBtn').disabled = true;
-  setTimeout(() => ansBox.scrollIntoView({behavior:'smooth', block:'start'}), 100);
+
+  // 답변 박스로 스크롤
+  setTimeout(() => {
+    main.scrollTo({top: main.scrollHeight, behavior:'smooth'});
+  }, 150);
 
   try {
     const resp = await fetch('/api/claude', {
@@ -431,8 +450,11 @@ ${resume}
       .trim();
 
     ansText.textContent = acc;
-    ansText.scrollTop = ansText.scrollHeight;
-    setTimeout(() => ansBox.scrollIntoView({behavior:'smooth', block:'start'}), 50);
+
+    // 답변 완료 후 맨 아래로 스크롤
+    setTimeout(() => {
+      main.scrollTo({top: main.scrollHeight, behavior:'smooth'});
+    }, 100);
 
     lastAns = acc;
     convo.push({role:'assistant', content: acc});
@@ -444,6 +466,7 @@ ${resume}
     streaming = false;
     document.getElementById('spkBtn').disabled = false;
     document.getElementById('cpyBtn').disabled = false;
+    // done 상태 — 버튼은 🎤 "탭하여 시작" 으로 보임
     setMicState('done');
 
   } catch(err) {
